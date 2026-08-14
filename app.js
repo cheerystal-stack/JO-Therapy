@@ -40,6 +40,9 @@ function refreshDashboard(){
 }
 
 const dialog = $("caseDialog");
+$("closeCaseDialog").addEventListener("click", () => {
+  dialog.close();
+});
 
 $("newCaseBtn").addEventListener("click", () => dialog.showModal());
 
