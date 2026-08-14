@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f2747" />
+  <title>J-OSLER Therapy</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Case Management & Summary Support</p>
+        <h1>J-OSLER Therapy</h1>
+      </div>
+      <button class="icon-btn" id="menuBtn" aria-label="メニュー">⋯</button>
+    </header>
+
+    <main class="content">
+      <section class="hero">
+        <div>
+          <p class="section-kicker">DASHBOARD</p>
+          <h2>進捗サマリー</h2>
+          <p class="muted">まずは現在地だけ、すぐ分かる。</p>
+        </div>
+        <button class="primary-btn" id="newCaseBtn">＋ 新しい症例</button>
+      </section>
+
+      <section class="progress-grid" aria-label="進捗">
+        <article class="progress-card">
+          <div class="card-icon">▣</div>
+          <div>
+            <p class="label">症例数</p>
+            <div class="metric"><strong id="caseCount">0</strong><span>/ 120</span></div>
+          </div>
+          <div class="bar"><span id="caseBar"></span></div>
+        </article>
+
+        <article class="progress-card">
+          <div class="card-icon">◎</div>
+          <div>
+            <p class="label">疾患群</p>
+            <div class="metric"><strong id="groupCount">0</strong><span>/ 56</span></div>
+          </div>
+          <div class="bar"><span id="groupBar"></span></div>
+        </article>
+
+        <article class="progress-card">
+          <div class="card-icon">□</div>
+          <div>
+            <p class="label">病歴要約</p>
+            <div class="metric"><strong id="summaryCount">0</strong><span>/ 29</span></div>
+          </div>
+          <div class="bar"><span id="summaryBar"></span></div>
+        </article>
+      </section>
+
+      <section class="quick-section">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">QUICK ACTION</p>
+            <h2>すぐ始める</h2>
+          </div>
+        </div>
+
+        <div class="action-grid">
+          <button class="action-card" data-view="cases">
+            <span class="action-icon">＋</span>
+            <span>
+              <strong>症例を登録</strong>
+              <small>症例情報を保存して管理</small>
+            </span>
+            <span>›</span>
+          </button>
+
+          <button class="action-card" data-view="summary">
+            <span class="action-icon">▤</span>
+            <span>
+              <strong>病歴要約を作成</strong>
+              <small>確認済み情報から文章化</small>
+            </span>
+            <span>›</span>
+          </button>
+
+          <button class="action-card" data-view="check">
+            <span class="action-icon">✓</span>
+            <span>
+              <strong>J-OSLERチェック</strong>
+              <small>不足・表記・真正性を確認</small>
+            </span>
+            <span>›</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="notice">
+        <p class="section-kicker">APP RULE</p>
+        <h2>AIは、足りない情報を勝手に埋めません。</h2>
+        <p>カルテにない事実は作らない。未確認は「要確認」のまま保持。数値・薬剤量・日付・文献は補完しない。</p>
+      </section>
+
+      <section class="subprogress">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">DETAIL</p>
+            <h2>修了要件の補助表示</h2>
+          </div>
+        </div>
+        <div class="mini-grid">
+          <div class="mini-card"><span>入院症例</span><strong id="inpatientCount">0 / 108以上</strong></div>
+          <div class="mini-card"><span>外来症例</span><strong id="outpatientCount">0 / 最大12</strong></div>
+          <div class="mini-card"><span>プログラム外</span><strong id="outsideCount">0 / 最大60</strong></div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="メインナビゲーション">
+      <button class="nav-item active" data-view="home"><span>⌂</span><small>HOME</small></button>
+      <button class="nav-item" data-view="cases"><span>▣</span><small>症例</small></button>
+      <button class="nav-item" data-view="summary"><span>▤</span><small>要約</small></button>
+      <button class="nav-item" data-view="check"><span>✓</span><small>CHECK</small></button>
+    </nav>
+  </div>
+
+  <dialog id="caseDialog">
+    <form method="dialog" class="dialog-card" id="caseForm">
+      <div class="dialog-head">
+        <div>
+          <p class="section-kicker">NEW CASE</p>
+          <h2>症例を登録</h2>
+        </div>
+        <button class="icon-btn" value="cancel" aria-label="閉じる">×</button>
+      </div>
+
+      <label>症例名（管理用）
+        <input id="caseTitle" type="text" placeholder="例：肺炎 / 心不全 など" />
+      </label>
+
+      <label>領域
+        <select id="caseArea">
+          <option value="">選択してください</option>
+          <option>総合内科</option>
+          <option>消化器</option>
+          <option>循環器</option>
+          <option>内分泌</option>
+          <option>代謝</option>
+          <option>腎臓</option>
+          <option>呼吸器</option>
+          <option>血液</option>
+          <option>神経</option>
+          <option>アレルギー</option>
+          <option>膠原病及び類縁疾患</option>
+          <option>感染症</option>
+          <option>救急</option>
+        </select>
+      </label>
+
+      <label>疾患群（仮入力）
+        <input id="caseGroup" type="text" placeholder="疾患群名" />
+      </label>
+
+      <div class="two-col">
+        <label>入院 / 外来
+          <select id="caseSetting">
+            <option value="inpatient">入院</option>
+            <option value="outpatient">外来</option>
+          </select>
+        </label>
+
+        <label>研修
+          <select id="caseProgram">
+            <option value="inside">プログラム内</option>
+            <option value="outside">プログラム外</option>
+          </select>
+        </label>
+      </div>
+
+      <label class="check-row">
+        <input id="caseSummary" type="checkbox" />
+        <span>この症例を病歴要約としてカウントする</span>
+      </label>
+
+      <p class="helper">※これは初期モックです。患者氏名・生年月日・住所などの個人識別情報は入力しない設計にしていきます。</p>
+
+      <button type="submit" class="primary-btn full">保存</button>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
