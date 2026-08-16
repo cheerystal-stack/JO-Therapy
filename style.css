@@ -223,3 +223,44 @@ input,select{
   .case-tools{grid-template-columns:1fr}
   .area-bars{grid-template-columns:1fr}
 }
+
+.summary-panel{margin-top:34px;padding-top:6px}
+.summary-case-select{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end;margin:12px 0}
+.summary-case-select label{margin:0}
+.source-card,.summary-editor,.final-card{
+  background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:var(--shadow)
+}
+.source-card{margin-top:14px}
+.source-head,.editor-head,.final-card{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.source-head h3,.editor-head h3,.final-card h3{margin:0}
+.source-textarea,.draft-textarea{
+  width:100%;min-height:220px;resize:vertical;margin-top:14px;padding:14px 15px;
+  border:1px solid var(--line);border-radius:14px;background:#fbfcfd;color:var(--ink);line-height:1.75
+}
+.draft-textarea{min-height:260px}
+.source-actions,.editor-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.secondary-btn,.ghost-btn{
+  border-radius:13px;padding:11px 14px;font-weight:800
+}
+.secondary-btn{border:1px solid #cfd7e2;background:#fff;color:var(--navy)}
+.ghost-btn{border:0;background:var(--soft);color:var(--muted)}
+.save-state{font-size:11px;color:var(--muted);padding:6px 9px;border-radius:999px;background:var(--soft)}
+.summary-tabs{
+  display:flex;gap:7px;overflow-x:auto;padding:18px 0 10px;scrollbar-width:thin
+}
+.summary-tab{
+  flex:0 0 auto;border:1px solid var(--line);background:#fff;color:var(--muted);
+  border-radius:999px;padding:9px 12px;font-weight:800;font-size:12px
+}
+.summary-tab.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+.truth-badge{flex:0 0 auto;background:#edf3fb;color:var(--navy);font-size:10px;font-weight:900;padding:7px 9px;border-radius:999px}
+.missing-hint{margin-top:14px;padding:11px 13px;border-radius:12px;background:#f7f1e8;color:#72552e;font-size:12px;line-height:1.6}
+.prompt-preview{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.prompt-preview summary{cursor:pointer;color:var(--navy);font-weight:800;font-size:12px}
+.prompt-preview pre{white-space:pre-wrap;word-break:break-word;background:#f7f9fb;padding:13px;border-radius:12px;font-size:11px;line-height:1.65;color:#3e4858}
+.final-card{margin-top:14px;align-items:center}
+@media(max-width:620px){
+  .summary-case-select{grid-template-columns:1fr}
+  .source-head,.editor-head,.final-card{flex-direction:column}
+  .final-card .primary-btn{width:100%}
+}

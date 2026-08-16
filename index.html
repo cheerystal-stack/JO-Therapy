@@ -78,6 +78,87 @@
       <div id="emptyCases" class="empty-state"><h3>まだ症例がありません</h3><p>最初の1件を登録してみます。</p></div>
       <div id="caseList" class="case-list"></div>
     </section>
+
+    <section id="summaryPanel" class="summary-panel">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">SUMMARY WORKSPACE</p>
+          <h2>病歴要約を作る</h2>
+          <p class="muted">カルテ原文 → 確認 → 下書き → コピー。勝手な補完はしない。</p>
+        </div>
+      </div>
+
+      <div class="summary-case-select">
+        <label>対象症例
+          <select id="summaryCaseSelect">
+            <option value="">症例を選択してください</option>
+          </select>
+        </label>
+        <button type="button" class="secondary-btn" id="openSelectedCaseBtn">症例を編集</button>
+      </div>
+
+      <div class="source-card">
+        <div class="source-head">
+          <div>
+            <p class="section-kicker">SOURCE</p>
+            <h3>カルテ原文・メモ</h3>
+          </div>
+          <span class="save-state" id="summarySaveState">未保存</span>
+        </div>
+        <textarea id="summarySource" class="source-textarea" placeholder="匿名化したカルテ情報を貼り付けます。患者氏名、生年月日、住所、病院実名などは入力しないでください。"></textarea>
+        <div class="source-actions">
+          <button type="button" class="secondary-btn" id="saveSourceBtn">原文を保存</button>
+          <button type="button" class="ghost-btn" id="clearSourceBtn">原文をクリア</button>
+        </div>
+      </div>
+
+      <div class="summary-tabs" id="summaryTabs">
+        <button type="button" class="summary-tab active" data-section="history">① 病歴</button>
+        <button type="button" class="summary-tab" data-section="physical">② 現症</button>
+        <button type="button" class="summary-tab" data-section="labs">③ 検査</button>
+        <button type="button" class="summary-tab" data-section="problem">④ Problem/処方</button>
+        <button type="button" class="summary-tab" data-section="course">⑤ 経過・考察</button>
+        <button type="button" class="summary-tab" data-section="overall">⑥ 総合考察</button>
+      </div>
+
+      <article class="summary-editor">
+        <div class="editor-head">
+          <div>
+            <p class="section-kicker" id="sectionKicker">SECTION 01</p>
+            <h3 id="sectionTitle">病歴</h3>
+            <p class="muted" id="sectionGuide">主病名中心。カルテにない情報は補わない。</p>
+          </div>
+          <span class="truth-badge">真正性優先</span>
+        </div>
+
+        <div id="missingHint" class="missing-hint">
+          ⚠ 不明・未記載の情報は、AIに推測させず「要確認」として扱います。
+        </div>
+
+        <textarea id="sectionDraft" class="draft-textarea" placeholder="生成した下書きをここに貼り付けて保存できます。"></textarea>
+
+        <div class="editor-actions">
+          <button type="button" class="primary-btn" id="copyPromptBtn">AI用プロンプトをコピー</button>
+          <button type="button" class="secondary-btn" id="saveDraftBtn">下書きを保存</button>
+          <button type="button" class="secondary-btn" id="copyDraftBtn">下書きをコピー</button>
+        </div>
+
+        <details class="prompt-preview">
+          <summary>AIに渡す指示を見る</summary>
+          <pre id="promptPreview"></pre>
+        </details>
+      </article>
+
+      <div class="final-card">
+        <div>
+          <p class="section-kicker">FINAL</p>
+          <h3>症例の文章セット</h3>
+          <p class="muted">保存済みの各セクションをまとめてコピーできます。</p>
+        </div>
+        <button type="button" class="primary-btn" id="copyAllDraftsBtn">全部まとめてコピー</button>
+      </div>
+    </section>
+
   </main>
 
   <nav class="bottom-nav">
