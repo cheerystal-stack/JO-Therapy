@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0f2747" />
   <title>J-OSLER Therapy</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css?v=6" />
+  <link rel="stylesheet" href="style.css?v=6.1" />
   <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
@@ -16,7 +16,7 @@
       <p class="eyebrow">Case Management & Summary Support</p>
       <h1>J-OSLER Therapy</h1>
     </div>
-    <span class="version-badge">v6</span>
+    <span class="version-badge">v6.1</span>
   </header>
 
   <main class="content">
@@ -130,7 +130,7 @@
         <div>
           <p class="section-kicker">QUICK 120</p>
           <h2>症例登録を高速処理</h2>
-          <p class="muted">通常症例用。概略500字以内＋自己省察300字以内を一気に整えます。</p>
+          <p class="muted">通常症例用。カルテ原文からAI用プロンプトを作り、そのままJ-OSLERへ。</p>
         </div>
       </div>
 
@@ -146,8 +146,8 @@
       <article class="source-card">
         <div class="source-head">
           <div>
-            <p class="section-kicker">SOURCE</p>
-            <h3>カルテ原文・メモ</h3>
+            <p class="section-kicker">STEP 1</p>
+            <h3>匿名化カルテを貼る</h3>
           </div>
           <span class="save-state" id="quickSaveState">症例未選択</span>
         </div>
@@ -155,52 +155,23 @@
         <textarea id="quickSource" class="source-textarea" placeholder="匿名化したカルテ情報を貼り付けます。患者氏名、生年月日、住所、実在病院名などは入力しないでください。"></textarea>
 
         <div class="source-actions">
-          <button type="button" class="secondary-btn" id="saveQuickSourceBtn">原文を保存</button>
+          <button type="button" class="primary-btn" id="copyQuickPromptBtn">STEP 2　AI用プロンプトをコピー</button>
           <button type="button" class="ghost-btn" id="clearQuickSourceBtn">原文をクリア</button>
-          <button type="button" class="primary-btn" id="copyQuickPromptBtn">AI用プロンプトをコピー</button>
+        </div>
+
+        <div id="quickFlowHint" class="flow-hint">
+          コピーしたプロンプトをChatGPTへ貼り付け、生成された「症例の概略」と「自己省察」をJ-OSLERへ直接貼り付けます。
         </div>
       </article>
 
-      <div class="quick-two-col">
-        <article class="summary-editor">
-          <div class="editor-head">
-            <div>
-              <p class="section-kicker">CASE SUMMARY</p>
-              <h3>症例の概略</h3>
-              <p class="muted">500字以内。必要十分な長さで簡潔に。</p>
-            </div>
-            <span class="counter" id="overviewCounter">0 / 500</span>
-          </div>
-          <textarea id="quickOverview" class="draft-textarea compact" maxlength="500" placeholder="AIで生成した「症例の概略」を貼り付けます。"></textarea>
-          <div class="editor-actions">
-            <button type="button" class="secondary-btn" id="copyQuickOverviewBtn">コピー</button>
-          </div>
-        </article>
-
-        <article class="summary-editor">
-          <div class="editor-head">
-            <div>
-              <p class="section-kicker">REFLECTION</p>
-              <h3>症例を経験しての自己省察</h3>
-              <p class="muted">300字以内。症例固有の学びを簡潔に。</p>
-            </div>
-            <span class="counter" id="reflectionCounter">0 / 300</span>
-          </div>
-          <textarea id="quickReflection" class="draft-textarea compact" maxlength="300" placeholder="AIで生成した「自己省察」を貼り付けます。"></textarea>
-          <div class="editor-actions">
-            <button type="button" class="secondary-btn" id="copyQuickReflectionBtn">コピー</button>
-          </div>
-        </article>
-      </div>
-
-      <div class="quick-complete-card">
+      <article class="quick-complete-card">
         <div>
-          <p class="section-kicker">SAVE</p>
-          <h3>QUICK登録文章を保存</h3>
-          <p class="muted">概略＋自己省察をまとめて保存。両方入っていれば「QUICK ✓」になります。</p>
+          <p class="section-kicker">STEP 3</p>
+          <h3>J-OSLERへ登録したら完了</h3>
+          <p class="muted">文章はJO-Therapyへ貼り戻しません。処理済みフラグだけ保存します。</p>
         </div>
-        <button type="button" class="primary-btn" id="saveQuickAllBtn">まとめて保存</button>
-      </div>
+        <button type="button" class="primary-btn" id="markQuickDoneBtn">✓ J-OSLERへ登録した</button>
+      </article>
     </section>
 
     <!-- FULL 29 -->
@@ -382,7 +353,7 @@
   </form>
 </dialog>
 
-<script src="data.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="data.js?v=6.1"></script>
+<script src="app.js?v=6.1"></script>
 </body>
 </html>

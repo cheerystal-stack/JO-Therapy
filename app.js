@@ -39,7 +39,7 @@ function officialGroupSet(cases){
 function quickRecord(caseId){
   const store=loadQuickStore();
   if(!store[caseId]){
-    store[caseId]={source:"",overview:"",reflection:"",updatedAt:null};
+    store[caseId]={source:"",done:false,updatedAt:null};
   }
   return {store,record:store[caseId]};
 }
@@ -52,7 +52,7 @@ function summaryRecord(caseId){
 }
 function isQuickComplete(caseId){
   const r=loadQuickStore()[caseId];
-  return !!(r?.overview?.trim() && r?.reflection?.trim());
+  return !!(r?.done || (r?.overview?.trim() && r?.reflection?.trim()));
 }
 function savedSummarySections(caseId){
   const r=loadSummaryStore()[caseId];
@@ -451,76 +451,35 @@ function buildQuickPrompt(){
   return QUICK_PROMPT.replace("{{SOURCE}}", source || "（カルテ原文が未入力です）");
 }
 
-function updateQuickCounters(){
-  $("overviewCounter").textContent=`${$("quickOverview").value.length} / 500`;
-  $("reflectionCounter").textContent=`${$("quickReflection").value.length} / 300`;
-}
-
 function loadQuickCase(){
   const caseId=currentQuickCaseId();
 
   if(!caseId){
     $("quickSource").value="";
-    $("quickOverview").value="";
-    $("quickReflection").value="";
     $("quickSaveState").textContent="症例未選択";
-    updateQuickCounters();
+    $("quickFlowHint").classList.remove("success");
     return;
   }
 
   const {record}=quickRecord(caseId);
   $("quickSource").value=record.source||"";
-  $("quickOverview").value=record.overview||"";
-  $("quickReflection").value=record.reflection||"";
-  $("quickSaveState").textContent=record.updatedAt ? (isQuickComplete(caseId)?"QUICK ✓":"保存済み") : "未保存";
-  updateQuickCounters();
+  $("quickSaveState").textContent=record.done ? "QUICK ✓" : "未処理";
+  $("quickFlowHint").classList.toggle("success", !!record.done);
 }
 
-function saveQuickSource(){
+function saveQuickSourceSilently(){
   const caseId=currentQuickCaseId();
-  if(!caseId){
-    alert("先に対象症例を選択してください。");
-    return;
-  }
+  if(!caseId) return false;
+
   const {store,record}=quickRecord(caseId);
   record.source=$("quickSource").value;
   record.updatedAt=new Date().toISOString();
   store[caseId]=record;
   saveQuickStore(store);
-  $("quickSaveState").textContent=isQuickComplete(caseId)?"QUICK ✓":"保存済み";
-  refreshDashboard();
-  renderCaseList();
-}
-
-function saveQuickAll(){
-  const caseId=currentQuickCaseId();
-  if(!caseId){
-    alert("先に対象症例を選択してください。");
-    return;
-  }
-
-  const {store,record}=quickRecord(caseId);
-  record.source=$("quickSource").value;
-  record.overview=$("quickOverview").value.trim();
-  record.reflection=$("quickReflection").value.trim();
-  record.updatedAt=new Date().toISOString();
-  store[caseId]=record;
-  saveQuickStore(store);
-
-  $("quickSaveState").textContent=isQuickComplete(caseId)?"QUICK ✓":"保存済み";
-  refreshDashboard();
-  renderCaseList();
-
-  if(isQuickComplete(caseId)){
-    alert("QUICK登録文章を保存しました。✓");
-  }else{
-    alert("保存しました。概略と自己省察の両方が入るとQUICK完了になります。");
-  }
+  return true;
 }
 
 $("quickCaseSelect").addEventListener("change",loadQuickCase);
-
-$("saveQuickSourceBtn").addEventListener("click",saveQuickSource);
 
 $("clearQuickSourceBtn").addEventListener("click",()=>{
   if(!currentQuickCaseId()){
@@ -528,47 +487,65 @@ $("clearQuickSourceBtn").addEventListener("click",()=>{
     return;
   }
   if(!confirm("QUICKのカルテ原文欄をクリアしますか？")) return;
+
   $("quickSource").value="";
-  saveQuickSource();
+  saveQuickSourceSilently();
+  $("quickSaveState").textContent=isQuickComplete(currentQuickCaseId()) ? "QUICK ✓" : "未処理";
 });
 
 $("copyQuickPromptBtn").addEventListener("click",()=>{
+  const caseId=currentQuickCaseId();
+  if(!caseId){
+    alert("先に対象症例を選択してください。");
+    return;
+  }
   if(!$("quickSource").value.trim()){
     alert("先にカルテ原文を入力してください。");
     return;
   }
-  copyText(buildQuickPrompt(),"QUICK用AIプロンプトをコピーしました。");
+
+  saveQuickSourceSilently();
+  copyText(buildQuickPrompt(),"QUICK用AIプロンプトをコピーしました。ChatGPTで生成後、そのままJ-OSLERへ貼り付けてください。");
+  $("quickFlowHint").textContent="✓ プロンプトをコピーしました。ChatGPTで生成 → J-OSLERへ直接貼り付け → 登録後に下の完了ボタンを押します。";
+  $("quickFlowHint").classList.add("success");
 });
 
-$("saveQuickAllBtn").addEventListener("click",saveQuickAll);
+$("markQuickDoneBtn").addEventListener("click",()=>{
+  const caseId=currentQuickCaseId();
+  if(!caseId){
+    alert("先に対象症例を選択してください。");
+    return;
+  }
 
-$("copyQuickOverviewBtn").addEventListener("click",()=>{
-  const text=$("quickOverview").value.trim();
-  if(!text){ alert("症例の概略がありません。"); return; }
-  copyText(text,"症例の概略をコピーしました。");
+  const {store,record}=quickRecord(caseId);
+  record.source=$("quickSource").value;
+  record.done=true;
+  record.completedAt=new Date().toISOString();
+  record.updatedAt=new Date().toISOString();
+  store[caseId]=record;
+  saveQuickStore(store);
+
+  $("quickSaveState").textContent="QUICK ✓";
+  $("quickFlowHint").textContent="✓ J-OSLER登録済みとして記録しました。";
+  $("quickFlowHint").classList.add("success");
+
+  refreshDashboard();
+  renderCaseList();
+  renderCheckPanel();
 });
 
-$("copyQuickReflectionBtn").addEventListener("click",()=>{
-  const text=$("quickReflection").value.trim();
-  if(!text){ alert("自己省察がありません。"); return; }
-  copyText(text,"自己省察をコピーしました。");
-});
-
-$("quickOverview").addEventListener("input",()=>{
-  $("quickSaveState").textContent="未保存";
-  updateQuickCounters();
-});
-$("quickReflection").addEventListener("input",()=>{
-  $("quickSaveState").textContent="未保存";
-  updateQuickCounters();
-});
 $("quickSource").addEventListener("input",()=>{
-  $("quickSaveState").textContent="未保存";
+  if(currentQuickCaseId() && !isQuickComplete(currentQuickCaseId())){
+    $("quickSaveState").textContent="未処理";
+  }
 });
 
 $("openQuickCaseBtn").addEventListener("click",()=>{
   const id=currentQuickCaseId();
-  if(!id){ alert("症例を選択してください。"); return; }
+  if(!id){
+    alert("症例を選択してください。");
+    return;
+  }
   openEditCase(id);
 });
 
@@ -1101,6 +1078,6 @@ refreshEverything();
 
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{
-    navigator.serviceWorker.register("./sw.js?v=6").catch(console.error);
+    navigator.serviceWorker.register("./sw.js?v=6.1").catch(console.error);
   });
 }
