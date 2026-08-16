@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0f2747" />
   <title>J-OSLER Therapy</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=6" />
   <link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
@@ -16,79 +16,204 @@
       <p class="eyebrow">Case Management & Summary Support</p>
       <h1>J-OSLER Therapy</h1>
     </div>
-    <button class="icon-btn" type="button" aria-label="メニュー">⋯</button>
+    <span class="version-badge">v6</span>
   </header>
 
   <main class="content">
-    <section class="hero">
-      <div>
-        <p class="section-kicker">DASHBOARD</p>
-        <h2>進捗サマリー</h2>
-        <p class="muted">症例を登録すると、進捗は自動で育ちます。</p>
-      </div>
-      <button class="primary-btn" id="newCaseBtn" type="button">＋ 新しい症例</button>
+
+    <!-- HOME -->
+    <section id="homePanel" class="panel">
+      <section class="hero">
+        <div>
+          <p class="section-kicker">DASHBOARD</p>
+          <h2>J-OSLERを、終わらせる。</h2>
+          <p class="muted">120症例はQUICKで高速処理。29篇だけFULLで丁寧に仕上げます。</p>
+        </div>
+        <button class="primary-btn" id="newCaseBtn" type="button">＋ 新しい症例</button>
+      </section>
+
+      <section class="progress-grid">
+        <article class="progress-card">
+          <div class="card-icon">▣</div>
+          <div><p class="label">症例数</p><div class="metric"><strong id="caseCount">0</strong><span>/ 120</span></div></div>
+          <div class="bar"><span id="caseBar"></span></div>
+        </article>
+
+        <article class="progress-card">
+          <div class="card-icon">◎</div>
+          <div><p class="label">疾患群</p><div class="metric"><strong id="groupCount">0</strong><span>/ 56</span></div></div>
+          <div class="bar"><span id="groupBar"></span></div>
+        </article>
+
+        <article class="progress-card">
+          <div class="card-icon">□</div>
+          <div><p class="label">病歴要約</p><div class="metric"><strong id="summaryCount">0</strong><span>/ 29</span></div></div>
+          <div class="bar"><span id="summaryBar"></span></div>
+        </article>
+      </section>
+
+      <section class="quick-progress-card">
+        <div>
+          <p class="section-kicker">QUICK 120</p>
+          <h3>症例登録文章</h3>
+          <p class="muted">症例の概略＋自己省察が保存済みの症例数。</p>
+        </div>
+        <div class="big-progress">
+          <strong id="quickDoneCount">0</strong><span>/ 120</span>
+        </div>
+      </section>
+
+      <section class="next-card">
+        <div>
+          <p class="section-kicker">TODAY'S NEXT</p>
+          <h3>次に進めるなら</h3>
+        </div>
+        <div id="nextAction" class="next-action">症例を登録すると、次の一手を表示します。</div>
+      </section>
+
+      <section class="subprogress">
+        <div class="section-heading">
+          <div><p class="section-kicker">DETAIL</p><h2>修了要件</h2></div>
+        </div>
+        <div class="mini-grid">
+          <div class="mini-card"><span>入院症例</span><strong id="inpatientCount">0 / 108以上</strong></div>
+          <div class="mini-card"><span>外来症例</span><strong id="outpatientCount">0 / 最大12</strong></div>
+          <div class="mini-card"><span>プログラム外</span><strong id="outsideCount">0 / 最大60</strong></div>
+        </div>
+      </section>
+
+      <section class="area-section">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">BALANCE</p>
+            <h2>領域バランス</h2>
+            <p class="muted">data.js に定義された領域別最低症例数・疾患群数を表示します。</p>
+          </div>
+        </div>
+        <div id="areaProgress" class="area-progress"></div>
+      </section>
+
+      <section class="notice">
+        <p class="section-kicker">APP RULE</p>
+        <h2>不足は、勝手に補わない。</h2>
+        <p>カルテにない事実は作らない。未確認は「要確認」。数値・薬剤量・日付・文献は補完しない。</p>
+      </section>
     </section>
 
-    <section class="progress-grid">
-      <article class="progress-card">
-        <div class="card-icon">▣</div><div><p class="label">症例数</p><div class="metric"><strong id="caseCount">0</strong><span>/ 120</span></div></div>
-        <div class="bar"><span id="caseBar"></span></div>
-      </article>
-      <article class="progress-card">
-        <div class="card-icon">◎</div><div><p class="label">疾患群</p><div class="metric"><strong id="groupCount">0</strong><span>/ 56</span></div></div>
-        <div class="bar"><span id="groupBar"></span></div>
-      </article>
-      <article class="progress-card">
-        <div class="card-icon">□</div><div><p class="label">病歴要約</p><div class="metric"><strong id="summaryCount">0</strong><span>/ 29</span></div></div>
-        <div class="bar"><span id="summaryBar"></span></div>
-      </article>
-    </section>
-
-    <section class="subprogress">
-      <div class="section-heading"><div><p class="section-kicker">DETAIL</p><h2>修了要件</h2></div></div>
-      <div class="mini-grid">
-        <div class="mini-card"><span>入院症例</span><strong id="inpatientCount">0 / 108以上</strong></div>
-        <div class="mini-card"><span>外来症例</span><strong id="outpatientCount">0 / 最大12</strong></div>
-        <div class="mini-card"><span>プログラム外</span><strong id="outsideCount">0 / 最大60</strong></div>
-      </div>
-    </section>
-
-    <section class="area-section">
+    <!-- CASE BANK -->
+    <section id="casesPanel" class="panel">
       <div class="section-heading">
-        <div><p class="section-kicker">BALANCE</p><h2>領域バランス</h2><p class="muted">7期生以降の領域別最低症例数・疾患群数。</p></div>
-      </div>
-      <div id="areaProgress" class="area-progress"></div>
-    </section>
-
-    <section class="notice">
-      <p class="section-kicker">APP RULE</p>
-      <h2>不足は、勝手に補わない。</h2>
-      <p>カルテにない事実は作らない。未確認は「要確認」。数値・薬剤量・日付・文献は補完しない。</p>
-    </section>
-
-    <section id="casesPanel" class="cases-panel">
-      <div class="section-heading">
-        <div><p class="section-kicker">CASES</p><h2>症例一覧</h2></div>
+        <div>
+          <p class="section-kicker">CASE BANK</p>
+          <h2>症例一覧</h2>
+          <p class="muted">まず箱だけ作る。詳しい文章はQUICK / FULLで。</p>
+        </div>
         <button class="primary-btn" id="newCaseBtn2" type="button">＋ 新しい症例</button>
       </div>
+
       <div class="case-tools">
         <input id="caseSearch" type="search" placeholder="症例名・領域・疾患群で検索" />
         <select id="areaFilter"><option value="">すべての領域</option></select>
       </div>
-      <div id="emptyCases" class="empty-state"><h3>まだ症例がありません</h3><p>最初の1件を登録してみます。</p></div>
+
+      <div id="emptyCases" class="empty-state">
+        <h3>まだ症例がありません</h3>
+        <p>最初の1件を登録してみます。</p>
+      </div>
+
       <div id="caseList" class="case-list"></div>
     </section>
 
-    <section id="summaryPanel" class="summary-panel">
+    <!-- QUICK 120 -->
+    <section id="quickPanel" class="panel">
       <div class="section-heading">
         <div>
-          <p class="section-kicker">SUMMARY WORKSPACE</p>
-          <h2>病歴要約を作る</h2>
-          <p class="muted">カルテ原文 → 確認 → 下書き → コピー。勝手な補完はしない。</p>
+          <p class="section-kicker">QUICK 120</p>
+          <h2>症例登録を高速処理</h2>
+          <p class="muted">通常症例用。概略500字以内＋自己省察300字以内を一気に整えます。</p>
         </div>
       </div>
 
-      <div class="summary-case-select">
+      <div class="workspace-select">
+        <label>対象症例
+          <select id="quickCaseSelect">
+            <option value="">症例を選択してください</option>
+          </select>
+        </label>
+        <button type="button" class="secondary-btn" id="openQuickCaseBtn">症例を編集</button>
+      </div>
+
+      <article class="source-card">
+        <div class="source-head">
+          <div>
+            <p class="section-kicker">SOURCE</p>
+            <h3>カルテ原文・メモ</h3>
+          </div>
+          <span class="save-state" id="quickSaveState">症例未選択</span>
+        </div>
+
+        <textarea id="quickSource" class="source-textarea" placeholder="匿名化したカルテ情報を貼り付けます。患者氏名、生年月日、住所、実在病院名などは入力しないでください。"></textarea>
+
+        <div class="source-actions">
+          <button type="button" class="secondary-btn" id="saveQuickSourceBtn">原文を保存</button>
+          <button type="button" class="ghost-btn" id="clearQuickSourceBtn">原文をクリア</button>
+          <button type="button" class="primary-btn" id="copyQuickPromptBtn">AI用プロンプトをコピー</button>
+        </div>
+      </article>
+
+      <div class="quick-two-col">
+        <article class="summary-editor">
+          <div class="editor-head">
+            <div>
+              <p class="section-kicker">CASE SUMMARY</p>
+              <h3>症例の概略</h3>
+              <p class="muted">500字以内。必要十分な長さで簡潔に。</p>
+            </div>
+            <span class="counter" id="overviewCounter">0 / 500</span>
+          </div>
+          <textarea id="quickOverview" class="draft-textarea compact" maxlength="500" placeholder="AIで生成した「症例の概略」を貼り付けます。"></textarea>
+          <div class="editor-actions">
+            <button type="button" class="secondary-btn" id="copyQuickOverviewBtn">コピー</button>
+          </div>
+        </article>
+
+        <article class="summary-editor">
+          <div class="editor-head">
+            <div>
+              <p class="section-kicker">REFLECTION</p>
+              <h3>症例を経験しての自己省察</h3>
+              <p class="muted">300字以内。症例固有の学びを簡潔に。</p>
+            </div>
+            <span class="counter" id="reflectionCounter">0 / 300</span>
+          </div>
+          <textarea id="quickReflection" class="draft-textarea compact" maxlength="300" placeholder="AIで生成した「自己省察」を貼り付けます。"></textarea>
+          <div class="editor-actions">
+            <button type="button" class="secondary-btn" id="copyQuickReflectionBtn">コピー</button>
+          </div>
+        </article>
+      </div>
+
+      <div class="quick-complete-card">
+        <div>
+          <p class="section-kicker">SAVE</p>
+          <h3>QUICK登録文章を保存</h3>
+          <p class="muted">概略＋自己省察をまとめて保存。両方入っていれば「QUICK ✓」になります。</p>
+        </div>
+        <button type="button" class="primary-btn" id="saveQuickAllBtn">まとめて保存</button>
+      </div>
+    </section>
+
+    <!-- FULL 29 -->
+    <section id="summaryPanel" class="panel">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">FULL 29</p>
+          <h2>病歴要約を作る</h2>
+          <p class="muted">29篇用。カルテ原文 → PRE-FLIGHT → 下書き → 原文照合へ。</p>
+        </div>
+      </div>
+
+      <div class="workspace-select">
         <label>対象症例
           <select id="summaryCaseSelect">
             <option value="">症例を選択してください</option>
@@ -97,23 +222,24 @@
         <button type="button" class="secondary-btn" id="openSelectedCaseBtn">症例を編集</button>
       </div>
 
-      <div class="source-card">
+      <article class="source-card">
         <div class="source-head">
           <div>
             <p class="section-kicker">SOURCE</p>
             <h3>カルテ原文・メモ</h3>
           </div>
-          <span class="save-state" id="summarySaveState">未保存</span>
+          <span class="save-state" id="summarySaveState">症例未選択</span>
         </div>
+
         <textarea id="summarySource" class="source-textarea" placeholder="匿名化したカルテ情報を貼り付けます。患者氏名、生年月日、住所、病院実名などは入力しないでください。"></textarea>
+
         <div class="source-actions">
           <button type="button" class="secondary-btn" id="saveSourceBtn">原文を保存</button>
           <button type="button" class="ghost-btn" id="clearSourceBtn">原文をクリア</button>
         </div>
-      </div>
+      </article>
 
-
-      <section class="preflight-card">
+      <section class="preflight-card" id="preflightCard">
         <div class="preflight-head">
           <div>
             <p class="section-kicker">PRE-FLIGHT</p>
@@ -122,7 +248,7 @@
           </div>
           <button type="button" class="secondary-btn" id="runPreflightBtn">チェックする</button>
         </div>
-        <div id="preflightSummary" class="preflight-summary">症例情報を保存したらチェックできます。</div>
+        <div id="preflightSummary" class="preflight-summary">症例を選択してください。</div>
         <div id="preflightList" class="preflight-list"></div>
       </section>
 
@@ -142,7 +268,10 @@
             <h3 id="sectionTitle">病歴</h3>
             <p class="muted" id="sectionGuide">主病名中心。カルテにない情報は補わない。</p>
           </div>
-          <div class="editor-status-wrap"><span class="truth-badge">真正性優先</span><span id="draftStatus" class="draft-status">未保存</span></div>
+          <div class="editor-status-wrap">
+            <span class="truth-badge">真正性優先</span>
+            <span id="draftStatus" class="draft-status">未保存</span>
+          </div>
         </div>
 
         <div id="missingHint" class="missing-hint">
@@ -173,12 +302,26 @@
       </div>
     </section>
 
+    <!-- CHECK -->
+    <section id="checkPanel" class="panel">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">CHECK</p>
+          <h2>進捗チェック</h2>
+          <p class="muted">「あと何をすれば進むか」を一覧で確認します。</p>
+        </div>
+      </div>
+      <div id="checkSummaryCards" class="check-grid"></div>
+      <div id="checkTodoList" class="todo-list"></div>
+    </section>
+
   </main>
 
   <nav class="bottom-nav">
     <button class="nav-item active" type="button" data-nav="home"><span>⌂</span><small>HOME</small></button>
     <button class="nav-item" type="button" data-nav="cases"><span>▣</span><small>症例</small></button>
-    <button class="nav-item" type="button" data-nav="summary"><span>▤</span><small>要約</small></button>
+    <button class="nav-item" type="button" data-nav="quick"><span>⚡</span><small>QUICK</small></button>
+    <button class="nav-item" type="button" data-nav="summary"><span>▤</span><small>FULL</small></button>
     <button class="nav-item" type="button" data-nav="check"><span>✓</span><small>CHECK</small></button>
   </nav>
 </div>
@@ -186,8 +329,12 @@
 <dialog id="caseDialog">
   <form class="dialog-card" id="caseForm">
     <input type="hidden" id="editingId" />
+
     <div class="dialog-head">
-      <div><p class="section-kicker" id="dialogKicker">NEW CASE</p><h2 id="dialogTitle">症例を登録</h2></div>
+      <div>
+        <p class="section-kicker" id="dialogKicker">NEW CASE</p>
+        <h2 id="dialogTitle">症例を登録</h2>
+      </div>
       <button type="button" class="icon-btn" id="closeCaseDialog" aria-label="閉じる">×</button>
     </div>
 
@@ -205,18 +352,29 @@
 
     <div class="two-col">
       <label>入院 / 外来
-        <select id="caseSetting"><option value="inpatient">入院</option><option value="outpatient">外来</option></select>
+        <select id="caseSetting">
+          <option value="inpatient">入院</option>
+          <option value="outpatient">外来</option>
+        </select>
       </label>
+
       <label>研修
-        <select id="caseProgram"><option value="inside">プログラム内</option><option value="outside">プログラム外</option></select>
+        <select id="caseProgram">
+          <option value="inside">プログラム内</option>
+          <option value="outside">プログラム外</option>
+        </select>
       </label>
     </div>
 
-    <label class="check-row"><input id="caseSummary" type="checkbox" /><span>この症例を病歴要約としてカウントする</span></label>
+    <label class="check-row">
+      <input id="caseSummary" type="checkbox" />
+      <span>この症例を病歴要約29篇の候補にする</span>
+    </label>
 
     <div id="caseWarnings" class="warning-box hidden"></div>
 
     <p class="helper">患者氏名・生年月日・住所など、患者を識別できる情報は入力しないでください。</p>
+
     <div class="dialog-actions">
       <button type="button" id="deleteCaseBtn" class="danger-btn hidden">削除</button>
       <button type="submit" class="primary-btn">保存</button>
@@ -224,7 +382,7 @@
   </form>
 </dialog>
 
-<script src="data.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="data.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

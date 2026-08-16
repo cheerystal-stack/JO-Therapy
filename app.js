@@ -1,14 +1,27 @@
-
 const STORE_KEY = "joslerTherapyCasesV1";
+const SUMMARY_KEY = "joslerTherapySummaryV1";
+const QUICK_KEY = "joslerTherapyQuickV1";
 const $ = id => document.getElementById(id);
 
-function loadCases(){
-  try{return JSON.parse(localStorage.getItem(STORE_KEY)) || []}
-  catch{return []}
+function loadJSON(key, fallback){
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+  catch { return fallback; }
 }
-function saveCases(cases){ localStorage.setItem(STORE_KEY, JSON.stringify(cases)); }
+function saveJSON(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+
+function loadCases(){ return loadJSON(STORE_KEY, []); }
+function saveCases(cases){ saveJSON(STORE_KEY, cases); }
+function loadSummaryStore(){ return loadJSON(SUMMARY_KEY, {}); }
+function saveSummaryStore(store){ saveJSON(SUMMARY_KEY, store); }
+function loadQuickStore(){ return loadJSON(QUICK_KEY, {}); }
+function saveQuickStore(store){ saveJSON(QUICK_KEY, store); }
+
 function pct(v,max){ return max ? Math.max(0,Math.min(100,(v/max)*100)) : 0; }
-function escapeHtml(s){ return String(s??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch])); }
+function escapeHtml(s){
+  return String(s ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+  }[ch]));
+}
 function getArea(id){ return AREA_MASTER.find(a=>a.id===id); }
 function getGroup(groupId){
   for(const area of AREA_MASTER){
@@ -20,13 +33,57 @@ function getGroup(groupId){
 function generalCaseCount(cases){
   return cases.filter(c=>["general1","general2","general3"].includes(c.areaId)).length;
 }
+function officialGroupSet(cases){
+  return new Set(cases.map(c=>c.groupId).filter(Boolean));
+}
+function quickRecord(caseId){
+  const store=loadQuickStore();
+  if(!store[caseId]){
+    store[caseId]={source:"",overview:"",reflection:"",updatedAt:null};
+  }
+  return {store,record:store[caseId]};
+}
+function summaryRecord(caseId){
+  const store=loadSummaryStore();
+  if(!store[caseId]){
+    store[caseId]={source:"",drafts:{},updatedAt:null};
+  }
+  return {store,record:store[caseId]};
+}
+function isQuickComplete(caseId){
+  const r=loadQuickStore()[caseId];
+  return !!(r?.overview?.trim() && r?.reflection?.trim());
+}
+function savedSummarySections(caseId){
+  const r=loadSummaryStore()[caseId];
+  if(!r?.drafts) return 0;
+  return Object.values(r.drafts).filter(v=>String(v||"").trim()).length;
+}
+function currentQuickCaseId(){ return $("quickCaseSelect").value; }
+function currentSummaryCaseId(){ return $("summaryCaseSelect").value; }
 
+async function copyText(text, success){
+  try{
+    await navigator.clipboard.writeText(text);
+    alert(success);
+  }catch{
+    const ta=document.createElement("textarea");
+    ta.value=text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    alert(success);
+  }
+}
+
+// ---------- SELECTS ----------
 function initSelects(){
   const areaSelect=$("caseArea");
   const filter=$("areaFilter");
   AREA_MASTER.forEach(a=>{
-    const o=document.createElement("option"); o.value=a.id; o.textContent=a.name; areaSelect.appendChild(o);
-    const f=document.createElement("option"); f.value=a.id; f.textContent=a.name; filter.appendChild(f);
+    areaSelect.appendChild(new Option(a.name,a.id));
+    filter.appendChild(new Option(a.name,a.id));
   });
 }
 function fillGroupSelect(areaId, selected=""){
@@ -44,10 +101,7 @@ function fillGroupSelect(areaId, selected=""){
   if(selected) sel.value=selected;
 }
 
-function officialGroupSet(cases){
-  return new Set(cases.map(c=>c.groupId).filter(Boolean));
-}
-
+// ---------- DASHBOARD ----------
 function refreshDashboard(){
   const cases=loadCases();
   const groups=officialGroupSet(cases);
@@ -55,17 +109,24 @@ function refreshDashboard(){
   const inpatient=cases.filter(c=>c.setting==="inpatient").length;
   const outpatient=cases.filter(c=>c.setting==="outpatient").length;
   const outside=cases.filter(c=>c.program==="outside").length;
+  const quickDone=cases.filter(c=>isQuickComplete(c.id)).length;
 
   $("caseCount").textContent=cases.length;
   $("groupCount").textContent=groups.size;
   $("summaryCount").textContent=summaries;
+  $("quickDoneCount").textContent=quickDone;
+
   $("caseBar").style.width=pct(cases.length,REQUIREMENTS.totalCases)+"%";
   $("groupBar").style.width=pct(groups.size,REQUIREMENTS.totalGroups)+"%";
   $("summaryBar").style.width=pct(summaries,REQUIREMENTS.summaries)+"%";
+
   $("inpatientCount").textContent=`${inpatient} / ${REQUIREMENTS.inpatientMin}以上`;
   $("outpatientCount").textContent=`${outpatient} / 最大${REQUIREMENTS.outpatientMax}`;
   $("outsideCount").textContent=`${outside} / 最大${REQUIREMENTS.outsideMax}`;
+
   renderAreaProgress(cases);
+  renderNextAction(cases);
+  renderCheckPanel();
 }
 
 function renderAreaProgress(cases){
@@ -78,25 +139,56 @@ function renderAreaProgress(cases){
     const areaCases=cases.filter(c=>c.areaId===area.id).length;
     const groupCount=area.groups.filter(g=>groupSet.has(g.id)).length;
     const caseMin=area.caseMin;
-    const caseDone = caseMin ? areaCases>=caseMin : genCases>=GENERAL_CASE_MIN;
-    const groupDone = groupCount>=area.groupMin;
+    const caseDone=caseMin ? areaCases>=caseMin : genCases>=GENERAL_CASE_MIN;
+    const groupDone=groupCount>=area.groupMin;
     const row=document.createElement("div");
     row.className="area-row"+(caseDone&&groupDone?" done":"");
     const caseLabel=caseMin ? `${areaCases}/${caseMin}` : `${genCases}/${GENERAL_CASE_MIN}（総合内科計）`;
+
     row.innerHTML=`
       <div class="area-head">
         <div class="area-name">${escapeHtml(area.name)}</div>
         <div class="area-values">症例 <strong>${caseLabel}</strong>　疾患群 <strong>${groupCount}/${area.groupMin}</strong></div>
       </div>
       <div class="area-bars">
-        <div class="tiny-bar-wrap"><small>症例</small><div class="tiny-bar"><span style="width:${pct(caseMin?areaCases:genCases,caseMin||GENERAL_CASE_MIN)}%"></span></div></div>
-        <div class="tiny-bar-wrap"><small>疾患群</small><div class="tiny-bar"><span style="width:${pct(groupCount,area.groupMin)}%"></span></div></div>
+        <div class="tiny-bar-wrap">
+          <small>症例</small>
+          <div class="tiny-bar"><span style="width:${pct(caseMin?areaCases:genCases,caseMin||GENERAL_CASE_MIN)}%"></span></div>
+        </div>
+        <div class="tiny-bar-wrap">
+          <small>疾患群</small>
+          <div class="tiny-bar"><span style="width:${pct(groupCount,area.groupMin)}%"></span></div>
+        </div>
       </div>`;
     wrap.appendChild(row);
   });
 }
 
+function renderNextAction(cases){
+  const box=$("nextAction");
+  if(!cases.length){
+    box.textContent="まず1症例だけ登録。詳しい入力は後で大丈夫です。";
+    return;
+  }
+
+  const quickPending=cases.find(c=>!isQuickComplete(c.id));
+  if(quickPending){
+    box.innerHTML=`<strong>${escapeHtml(quickPending.title)}</strong><br>QUICK未完成。カルテ原文を貼って概略＋自己省察を作れます。`;
+    return;
+  }
+
+  const fullPending=cases.find(c=>c.summary && savedSummarySections(c.id)<6);
+  if(fullPending){
+    box.innerHTML=`<strong>${escapeHtml(fullPending.title)}</strong><br>病歴要約候補。FULLは ${savedSummarySections(fullPending.id)}/6 セクション保存済みです。`;
+    return;
+  }
+
+  box.textContent="登録済み症例のQUICKはすべて完成しています。病歴要約29篇の候補を進めましょう。";
+}
+
+// ---------- CASE BANK ----------
 const dialog=$("caseDialog");
+
 function resetForm(){
   $("caseForm").reset();
   $("editingId").value="";
@@ -107,8 +199,11 @@ function resetForm(){
   updateWarnings();
 }
 function openNewCase(){ resetForm(); dialog.showModal(); }
+
 function openEditCase(id){
-  const item=loadCases().find(c=>c.id===id); if(!item)return;
+  const item=loadCases().find(c=>c.id===id);
+  if(!item) return;
+
   $("editingId").value=item.id;
   $("caseTitle").value=item.title||"";
   $("caseArea").value=item.areaId||"";
@@ -127,13 +222,20 @@ function updateWarnings(){
   const warnings=[];
   if($("caseSetting").value==="outpatient"){
     const current=loadCases().filter(c=>c.setting==="outpatient" && c.id!==$("editingId").value).length;
-    if(current>=REQUIREMENTS.outpatientMax) warnings.push(`外来症例は最大${REQUIREMENTS.outpatientMax}症例です。`);
-    else if(current>=REQUIREMENTS.outpatientMax-2) warnings.push(`外来症例は上限まで残り${REQUIREMENTS.outpatientMax-current}症例です。`);
+    if(current>=REQUIREMENTS.outpatientMax){
+      warnings.push(`外来症例は最大${REQUIREMENTS.outpatientMax}症例です。`);
+    }else if(current>=REQUIREMENTS.outpatientMax-2){
+      warnings.push(`外来症例は上限まで残り${REQUIREMENTS.outpatientMax-current}症例です。`);
+    }
   }
+
   if($("caseProgram").value==="outside"){
     const current=loadCases().filter(c=>c.program==="outside" && c.id!==$("editingId").value).length;
-    if(current>=REQUIREMENTS.outsideMax) warnings.push(`プログラム外症例は最大${REQUIREMENTS.outsideMax}症例です。`);
+    if(current>=REQUIREMENTS.outsideMax){
+      warnings.push(`プログラム外症例は最大${REQUIREMENTS.outsideMax}症例です。`);
+    }
   }
+
   const box=$("caseWarnings");
   box.innerHTML=warnings.map(w=>`⚠ ${escapeHtml(w)}`).join("<br>");
   box.classList.toggle("hidden",warnings.length===0);
@@ -142,46 +244,99 @@ function updateWarnings(){
 function renderCaseList(){
   const q=($("caseSearch").value||"").trim().toLowerCase();
   const areaFilter=$("areaFilter").value;
-  const cases=loadCases().filter(c=>{
-    if(areaFilter && c.areaId!==areaFilter)return false;
-    const area=getArea(c.areaId)?.name || c.area || "";
-    const group=getGroup(c.groupId)?.name || c.group || "";
-    return !q || [c.title,area,group].filter(Boolean).some(v=>v.toLowerCase().includes(q));
-  }).sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
 
-  const list=$("caseList"), empty=$("emptyCases");
-  list.innerHTML=""; empty.style.display=cases.length?"none":"block";
+  const cases=loadCases()
+    .filter(c=>{
+      if(areaFilter && c.areaId!==areaFilter) return false;
+      const area=getArea(c.areaId)?.name || c.area || "";
+      const group=getGroup(c.groupId)?.name || c.group || "";
+      return !q || [c.title,area,group].filter(Boolean).some(v=>v.toLowerCase().includes(q));
+    })
+    .sort((a,b)=>new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
+
+  const list=$("caseList");
+  const empty=$("emptyCases");
+  list.innerHTML="";
+  empty.style.display=cases.length?"none":"block";
+
   cases.forEach(item=>{
     const area=getArea(item.areaId)?.name || item.area || "領域未設定";
     const group=getGroup(item.groupId)?.name || item.group || "疾患群未設定";
     const legacy=!item.groupId && !!item.group;
+    const quickDone=isQuickComplete(item.id);
+    const fullCount=savedSummarySections(item.id);
+
     const row=document.createElement("article");
     row.className="case-row";
     row.innerHTML=`
-      <div>
+      <div class="case-main">
         <h3>${escapeHtml(item.title)}</h3>
         <div class="case-meta">
           <span class="badge">${escapeHtml(area)}</span>
           <span class="badge ${legacy?"legacy":""}">${escapeHtml(group)}${legacy?"（旧入力）":""}</span>
           <span class="badge">${item.setting==="outpatient"?"外来":"入院"}</span>
           <span class="badge">${item.program==="outside"?"プログラム外":"プログラム内"}</span>
-          ${item.summary?'<span class="badge summary">病歴要約</span>':""}
+          ${item.summary?'<span class="badge summary">29篇候補</span>':""}
+        </div>
+        <div class="case-status-line">
+          <span class="${quickDone?"status-ok":"status-pending"}">QUICK ${quickDone?"✓":"未完"}</span>
+          ${item.summary?`<span class="${fullCount===6?"status-ok":"status-pending"}">FULL ${fullCount}/6</span>`:""}
         </div>
       </div>
       <div class="case-row-actions">
-        <button type="button" class="summary-jump-btn" data-summary-id="${item.id}">要約作成</button>
+        <button type="button" class="quick-jump-btn" data-quick-id="${item.id}">QUICK</button>
+        <button type="button" class="summary-jump-btn" data-summary-id="${item.id}">FULL</button>
         <button type="button" class="edit-btn" data-edit-id="${item.id}">編集</button>
       </div>`;
+
     list.appendChild(row);
   });
-  list.querySelectorAll("[data-edit-id]").forEach(b=>b.addEventListener("click",()=>openEditCase(b.dataset.editId)));
-  list.querySelectorAll("[data-summary-id]").forEach(b=>b.addEventListener("click",()=>{
-    const id=b.dataset.summaryId;
-    refreshSummaryCaseOptions();
-    $("summaryCaseSelect").value=id;
-    loadSummaryCase();
-    $("summaryPanel").scrollIntoView({behavior:"smooth",block:"start"});
-  }));
+
+  list.querySelectorAll("[data-edit-id]").forEach(b=>{
+    b.addEventListener("click",()=>openEditCase(b.dataset.editId));
+  });
+
+  list.querySelectorAll("[data-quick-id]").forEach(b=>{
+    b.addEventListener("click",()=>{
+      refreshWorkspaceCaseOptions();
+      $("quickCaseSelect").value=b.dataset.quickId;
+      loadQuickCase();
+      $("quickPanel").scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  });
+
+  list.querySelectorAll("[data-summary-id]").forEach(b=>{
+    b.addEventListener("click",()=>{
+      refreshWorkspaceCaseOptions();
+      $("summaryCaseSelect").value=b.dataset.summaryId;
+      loadSummaryCase();
+      $("summaryPanel").scrollIntoView({behavior:"smooth",block:"start"});
+    });
+  });
+}
+
+function refreshWorkspaceCaseOptions(){
+  const cases=loadCases();
+
+  const fill=(sel,current,onlySummary=false)=>{
+    sel.innerHTML='<option value="">症例を選択してください</option>';
+    const source=onlySummary ? cases.filter(c=>c.summary) : cases;
+    source.forEach(c=>sel.appendChild(new Option(c.title,c.id)));
+    if([...sel.options].some(o=>o.value===current)) sel.value=current;
+  };
+
+  fill($("quickCaseSelect"),$("quickCaseSelect").value,false);
+
+  // FULLは29篇候補を優先。ただし候補が0件なら全症例を表示。
+  const summaryCandidates=cases.filter(c=>c.summary);
+  const sel=$("summaryCaseSelect");
+  const current=sel.value;
+  sel.innerHTML='<option value="">症例を選択してください</option>';
+  (summaryCandidates.length?summaryCandidates:cases).forEach(c=>{
+    const suffix=c.summary?"":"（候補未設定）";
+    sel.appendChild(new Option(c.title+suffix,c.id));
+  });
+  if([...sel.options].some(o=>o.value===current)) sel.value=current;
 }
 
 $("caseArea").addEventListener("change",e=>fillGroupSelect(e.target.value));
@@ -193,55 +348,231 @@ $("closeCaseDialog").addEventListener("click",()=>dialog.close());
 
 $("caseForm").addEventListener("submit",e=>{
   e.preventDefault();
+
   const title=$("caseTitle").value.trim();
   const areaId=$("caseArea").value;
   const groupId=$("caseGroup").value;
+
   if(!title||!areaId||!groupId){
     alert("症例名・領域・疾患群を入力してください。");
     return;
   }
+
   const id=$("editingId").value;
   const cases=loadCases();
   const old=cases.find(c=>c.id===id);
+
   const item={
     id:id||(crypto.randomUUID?crypto.randomUUID():String(Date.now())),
-    title,areaId,groupId,
+    title,
+    areaId,
+    groupId,
     setting:$("caseSetting").value,
     program:$("caseProgram").value,
     summary:$("caseSummary").checked,
     createdAt:old?.createdAt||new Date().toISOString(),
     updatedAt:new Date().toISOString()
   };
-  if(id){const i=cases.findIndex(c=>c.id===id); if(i>=0)cases[i]=item;} else cases.push(item);
-  saveCases(cases); dialog.close(); refreshDashboard(); renderCaseList(); if(typeof refreshSummaryCaseOptions==='function') refreshSummaryCaseOptions();
+
+  if(id){
+    const i=cases.findIndex(c=>c.id===id);
+    if(i>=0) cases[i]=item;
+  }else{
+    cases.push(item);
+  }
+
+  saveCases(cases);
+  dialog.close();
+  refreshEverything();
 });
 
 $("deleteCaseBtn").addEventListener("click",()=>{
-  const id=$("editingId").value;if(!id)return;
-  if(!confirm("この症例を削除しますか？"))return;
+  const id=$("editingId").value;
+  if(!id) return;
+  if(!confirm("この症例を削除しますか？")) return;
+
   saveCases(loadCases().filter(c=>c.id!==id));
-  dialog.close();refreshDashboard();renderCaseList();if(typeof refreshSummaryCaseOptions==='function') refreshSummaryCaseOptions();
+
+  const quick=loadQuickStore();
+  delete quick[id];
+  saveQuickStore(quick);
+
+  const summary=loadSummaryStore();
+  delete summary[id];
+  saveSummaryStore(summary);
+
+  dialog.close();
+  refreshEverything();
 });
+
 $("caseSearch").addEventListener("input",renderCaseList);
 $("areaFilter").addEventListener("change",renderCaseList);
 
-document.querySelector('[data-nav="home"]').addEventListener("click",()=>window.scrollTo({top:0,behavior:"smooth"}));
-document.querySelector('[data-nav="cases"]').addEventListener("click",()=>$("casesPanel").scrollIntoView({behavior:"smooth"}));
-document.querySelector('[data-nav="summary"]').addEventListener("click",()=>$("summaryPanel").scrollIntoView({behavior:"smooth"}));
-document.querySelector('[data-nav="check"]').addEventListener("click",()=>alert("J-OSLERチェックは次フェーズで実装します。"));
+// ---------- QUICK 120 ----------
+const QUICK_PROMPT = `あなたはJ-OSLER症例登録を支援するAIです。
 
-initSelects();
-refreshDashboard();
-renderCaseList();
+以下の匿名化されたカルテ原文だけを根拠に、
+【症例の概略】と【症例を経験しての自己省察】を作成してください。
 
-if("serviceWorker" in navigator){
-  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(console.error));
+重要ルール：
+- 原文にない事実を補わない。
+- 不明・未記載事項を推測しない。
+- 患者氏名、生年月日、住所、実在施設名など患者識別情報を書かない。
+- 数値、日付、薬剤名、用量、検査所見を勝手に作らない。
+- 一般的な医学用語へ整えてよいが、意味を変えない。
+- 冗長にしない。
+- J-OSLERへ貼り付けやすい常体で出力する。
+
+【症例の概略】
+- 500字以内。
+- 500字を埋める必要はない。
+- 発症または受診契機、主要な検査・診断根拠、診断、治療、治療反応、転帰が分かるよう簡潔にまとめる。
+- 原文にない経過は作らない。
+
+【症例を経験しての自己省察】
+- 300字以内。
+- 必要十分であれば1〜3文程度でもよい。
+- この症例から得られた医学的な学び、今後の課題、必要に応じて社会的・全人的な視点を含める。
+- 実際に行っていない指導や対応を「実施した」と書かない。
+- 無理に反省点を作らない。
+
+出力形式：
+【症例の概略】
+本文
+
+【症例を経験しての自己省察】
+本文
+
+【カルテ原文】
+{{SOURCE}}`;
+
+function buildQuickPrompt(){
+  const source=$("quickSource").value.trim();
+  return QUICK_PROMPT.replace("{{SOURCE}}", source || "（カルテ原文が未入力です）");
 }
 
+function updateQuickCounters(){
+  $("overviewCounter").textContent=`${$("quickOverview").value.length} / 500`;
+  $("reflectionCounter").textContent=`${$("quickReflection").value.length} / 300`;
+}
 
-// ---------- SUMMARY WORKSPACE v4 ----------
-const SUMMARY_KEY = "joslerTherapySummaryV1";
+function loadQuickCase(){
+  const caseId=currentQuickCaseId();
 
+  if(!caseId){
+    $("quickSource").value="";
+    $("quickOverview").value="";
+    $("quickReflection").value="";
+    $("quickSaveState").textContent="症例未選択";
+    updateQuickCounters();
+    return;
+  }
+
+  const {record}=quickRecord(caseId);
+  $("quickSource").value=record.source||"";
+  $("quickOverview").value=record.overview||"";
+  $("quickReflection").value=record.reflection||"";
+  $("quickSaveState").textContent=record.updatedAt ? (isQuickComplete(caseId)?"QUICK ✓":"保存済み") : "未保存";
+  updateQuickCounters();
+}
+
+function saveQuickSource(){
+  const caseId=currentQuickCaseId();
+  if(!caseId){
+    alert("先に対象症例を選択してください。");
+    return;
+  }
+  const {store,record}=quickRecord(caseId);
+  record.source=$("quickSource").value;
+  record.updatedAt=new Date().toISOString();
+  store[caseId]=record;
+  saveQuickStore(store);
+  $("quickSaveState").textContent=isQuickComplete(caseId)?"QUICK ✓":"保存済み";
+  refreshDashboard();
+  renderCaseList();
+}
+
+function saveQuickAll(){
+  const caseId=currentQuickCaseId();
+  if(!caseId){
+    alert("先に対象症例を選択してください。");
+    return;
+  }
+
+  const {store,record}=quickRecord(caseId);
+  record.source=$("quickSource").value;
+  record.overview=$("quickOverview").value.trim();
+  record.reflection=$("quickReflection").value.trim();
+  record.updatedAt=new Date().toISOString();
+  store[caseId]=record;
+  saveQuickStore(store);
+
+  $("quickSaveState").textContent=isQuickComplete(caseId)?"QUICK ✓":"保存済み";
+  refreshDashboard();
+  renderCaseList();
+
+  if(isQuickComplete(caseId)){
+    alert("QUICK登録文章を保存しました。✓");
+  }else{
+    alert("保存しました。概略と自己省察の両方が入るとQUICK完了になります。");
+  }
+}
+
+$("quickCaseSelect").addEventListener("change",loadQuickCase);
+
+$("saveQuickSourceBtn").addEventListener("click",saveQuickSource);
+
+$("clearQuickSourceBtn").addEventListener("click",()=>{
+  if(!currentQuickCaseId()){
+    alert("症例を選択してください。");
+    return;
+  }
+  if(!confirm("QUICKのカルテ原文欄をクリアしますか？")) return;
+  $("quickSource").value="";
+  saveQuickSource();
+});
+
+$("copyQuickPromptBtn").addEventListener("click",()=>{
+  if(!$("quickSource").value.trim()){
+    alert("先にカルテ原文を入力してください。");
+    return;
+  }
+  copyText(buildQuickPrompt(),"QUICK用AIプロンプトをコピーしました。");
+});
+
+$("saveQuickAllBtn").addEventListener("click",saveQuickAll);
+
+$("copyQuickOverviewBtn").addEventListener("click",()=>{
+  const text=$("quickOverview").value.trim();
+  if(!text){ alert("症例の概略がありません。"); return; }
+  copyText(text,"症例の概略をコピーしました。");
+});
+
+$("copyQuickReflectionBtn").addEventListener("click",()=>{
+  const text=$("quickReflection").value.trim();
+  if(!text){ alert("自己省察がありません。"); return; }
+  copyText(text,"自己省察をコピーしました。");
+});
+
+$("quickOverview").addEventListener("input",()=>{
+  $("quickSaveState").textContent="未保存";
+  updateQuickCounters();
+});
+$("quickReflection").addEventListener("input",()=>{
+  $("quickSaveState").textContent="未保存";
+  updateQuickCounters();
+});
+$("quickSource").addEventListener("input",()=>{
+  $("quickSaveState").textContent="未保存";
+});
+
+$("openQuickCaseBtn").addEventListener("click",()=>{
+  const id=currentQuickCaseId();
+  if(!id){ alert("症例を選択してください。"); return; }
+  openEditCase(id);
+});
+
+// ---------- FULL 29 ----------
 const SUMMARY_SECTIONS = {
   history: {
     kicker:"SECTION 01",
@@ -369,70 +700,7 @@ const SUMMARY_SECTIONS = {
   }
 };
 
-function loadSummaryStore(){
-  try{return JSON.parse(localStorage.getItem(SUMMARY_KEY)) || {}}
-  catch{return {}}
-}
-function saveSummaryStore(store){
-  localStorage.setItem(SUMMARY_KEY, JSON.stringify(store));
-}
-function currentSummaryCaseId(){ return $("summaryCaseSelect").value; }
-
-function refreshSummaryCaseOptions(){
-  const sel=$("summaryCaseSelect");
-  const current=sel.value;
-  sel.innerHTML='<option value="">症例を選択してください</option>';
-  loadCases().forEach(c=>{
-    const o=document.createElement("option");
-    o.value=c.id;o.textContent=c.title;sel.appendChild(o);
-  });
-  if([...sel.options].some(o=>o.value===current)) sel.value=current;
-}
-
-function summaryRecord(caseId){
-  const store=loadSummaryStore();
-  if(!store[caseId]) store[caseId]={source:"",drafts:{},updatedAt:null};
-  return {store,record:store[caseId]};
-}
-
 let activeSummarySection="history";
-
-function loadSummaryCase(){
-  const caseId=currentSummaryCaseId();
-  if(!caseId){
-    $("summarySource").value="";
-    $("sectionDraft").value="";
-    $("summarySaveState").textContent="症例未選択";
-    updatePromptPreview();
-    return;
-  }
-  const {record}=summaryRecord(caseId);
-  $("summarySource").value=record.source||"";
-  $("sectionDraft").value=record.drafts?.[activeSummarySection]||"";
-  $("summarySaveState").textContent=record.updatedAt?"保存済み":"未保存";
-  updatePromptPreview();
-}
-
-function saveSource(){
-  const caseId=currentSummaryCaseId();
-  if(!caseId){alert("先に対象症例を選択してください。");return}
-  const {store,record}=summaryRecord(caseId);
-  record.source=$("summarySource").value;
-  record.updatedAt=new Date().toISOString();
-  store[caseId]=record;saveSummaryStore(store);
-  $("summarySaveState").textContent="保存済み";
-}
-
-function saveDraft(){
-  const caseId=currentSummaryCaseId();
-  if(!caseId){alert("先に対象症例を選択してください。");return}
-  const {store,record}=summaryRecord(caseId);
-  record.drafts=record.drafts||{};
-  record.drafts[activeSummarySection]=$("sectionDraft").value;
-  record.updatedAt=new Date().toISOString();
-  store[caseId]=record;saveSummaryStore(store);
-  $("summarySaveState").textContent="保存済み";
-}
 
 function buildPrompt(){
   const info=SUMMARY_SECTIONS[activeSummarySection];
@@ -448,65 +716,182 @@ function updatePromptPreview(){
   $("promptPreview").textContent=buildPrompt();
 }
 
+function updateDraftStatus(){
+  const caseId=currentSummaryCaseId();
+  const status=$("draftStatus");
+
+  if(!caseId){
+    status.textContent="症例未選択";
+    status.classList.remove("saved");
+    return;
+  }
+
+  const record=summaryRecord(caseId).record;
+  const saved=!!record.drafts?.[activeSummarySection]?.trim();
+  status.textContent=saved?"保存済み":"未保存";
+  status.classList.toggle("saved",saved);
+}
+
+function resetPreflight(message){
+  $("preflightSummary").className="preflight-summary";
+  $("preflightSummary").textContent=message;
+  $("preflightList").innerHTML="";
+}
+
+function loadSummaryCase(){
+  const caseId=currentSummaryCaseId();
+
+  if(!caseId){
+    $("summarySource").value="";
+    $("sectionDraft").value="";
+    $("summarySaveState").textContent="症例未選択";
+    updatePromptPreview();
+    updateDraftStatus();
+    resetPreflight("症例を選択してください。");
+    return;
+  }
+
+  const {record}=summaryRecord(caseId);
+  $("summarySource").value=record.source||"";
+  $("sectionDraft").value=record.drafts?.[activeSummarySection]||"";
+  $("summarySaveState").textContent=record.updatedAt?"保存済み":"未保存";
+  updatePromptPreview();
+  updateDraftStatus();
+  resetPreflight("「チェックする」で症例材料の抜け候補を確認できます。");
+}
+
+function saveSource(){
+  const caseId=currentSummaryCaseId();
+  if(!caseId){
+    alert("先に対象症例を選択してください。");
+    return;
+  }
+
+  const {store,record}=summaryRecord(caseId);
+  record.source=$("summarySource").value;
+  record.updatedAt=new Date().toISOString();
+  store[caseId]=record;
+  saveSummaryStore(store);
+
+  $("summarySaveState").textContent="保存済み";
+  refreshDashboard();
+}
+
+function saveDraft(){
+  const caseId=currentSummaryCaseId();
+  if(!caseId){
+    alert("先に対象症例を選択してください。");
+    return;
+  }
+
+  const {store,record}=summaryRecord(caseId);
+  record.drafts=record.drafts||{};
+  record.drafts[activeSummarySection]=$("sectionDraft").value;
+  record.updatedAt=new Date().toISOString();
+  store[caseId]=record;
+  saveSummaryStore(store);
+
+  $("summarySaveState").textContent="保存済み";
+  updateDraftStatus();
+  refreshDashboard();
+  renderCaseList();
+}
+
 function switchSummarySection(section){
   activeSummarySection=section;
-  document.querySelectorAll(".summary-tab").forEach(b=>b.classList.toggle("active",b.dataset.section===section));
+  document.querySelectorAll(".summary-tab").forEach(b=>{
+    b.classList.toggle("active",b.dataset.section===section);
+  });
+
   const caseId=currentSummaryCaseId();
   const record=caseId?summaryRecord(caseId).record:null;
   $("sectionDraft").value=record?.drafts?.[section]||"";
   updatePromptPreview();
-}
-
-async function copyText(text, success){
-  try{
-    await navigator.clipboard.writeText(text);
-    alert(success);
-  }catch{
-    const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand("copy");ta.remove();alert(success);
-  }
+  updateDraftStatus();
 }
 
 $("summaryCaseSelect").addEventListener("change",loadSummaryCase);
 $("saveSourceBtn").addEventListener("click",saveSource);
+
 $("clearSourceBtn").addEventListener("click",()=>{
-  if(!confirm("カルテ原文欄をクリアしますか？"))return;
-  $("summarySource").value="";saveSource();updatePromptPreview();
+  if(!currentSummaryCaseId()){
+    alert("症例を選択してください。");
+    return;
+  }
+  if(!confirm("カルテ原文欄をクリアしますか？")) return;
+  $("summarySource").value="";
+  saveSource();
+  updatePromptPreview();
+  resetPreflight("症例情報を変更しました。再チェックしてください。");
 });
+
 $("summarySource").addEventListener("input",()=>{
   $("summarySaveState").textContent="未保存";
   updatePromptPreview();
+  resetPreflight("症例情報を変更しました。再チェックしてください。");
 });
-$("summaryTabs").querySelectorAll(".summary-tab").forEach(b=>b.addEventListener("click",()=>switchSummarySection(b.dataset.section)));
+
+$("summaryTabs").querySelectorAll(".summary-tab").forEach(b=>{
+  b.addEventListener("click",()=>switchSummarySection(b.dataset.section));
+});
+
 $("saveDraftBtn").addEventListener("click",saveDraft);
+
 $("copyPromptBtn").addEventListener("click",()=>{
-  if(!$("summarySource").value.trim()){alert("先にカルテ原文を入力してください。");return}
+  if(!$("summarySource").value.trim()){
+    alert("先にカルテ原文を入力してください。");
+    return;
+  }
   copyText(buildPrompt(),"AI用プロンプトをコピーしました。");
 });
+
 $("copyDraftBtn").addEventListener("click",()=>{
   const text=$("sectionDraft").value.trim();
-  if(!text){alert("下書きがありません。");return}
+  if(!text){
+    alert("下書きがありません。");
+    return;
+  }
   copyText(text,"下書きをコピーしました。");
 });
+
 $("copyAllDraftsBtn").addEventListener("click",()=>{
-  const caseId=currentSummaryCaseId();if(!caseId){alert("症例を選択してください。");return}
+  const caseId=currentSummaryCaseId();
+  if(!caseId){
+    alert("症例を選択してください。");
+    return;
+  }
+
   const record=summaryRecord(caseId).record;
-  const blocks=Object.entries(SUMMARY_SECTIONS).map(([key,info])=>{
-    const d=record.drafts?.[key]?.trim();
-    return d?`【${info.title}】\n${d}`:"";
-  }).filter(Boolean);
-  if(!blocks.length){alert("保存済みの下書きがありません。");return}
+  const blocks=Object.entries(SUMMARY_SECTIONS)
+    .map(([key,info])=>{
+      const d=record.drafts?.[key]?.trim();
+      return d?`【${info.title}】\n${d}`:"";
+    })
+    .filter(Boolean);
+
+  if(!blocks.length){
+    alert("保存済みの下書きがありません。");
+    return;
+  }
+
   copyText(blocks.join("\n\n"),"文章セットをコピーしました。");
 });
+
 $("openSelectedCaseBtn").addEventListener("click",()=>{
-  const id=currentSummaryCaseId();if(!id){alert("症例を選択してください。");return}
+  const id=currentSummaryCaseId();
+  if(!id){
+    alert("症例を選択してください。");
+    return;
+  }
   openEditCase(id);
 });
 
-refreshSummaryCaseOptions();
-loadSummaryCase();
+$("sectionDraft").addEventListener("input",()=>{
+  $("draftStatus").textContent="未保存";
+  $("draftStatus").classList.remove("saved");
+});
 
-
-// ---------- PRE-FLIGHT SUPPORT CHECK v5 ----------
+// ---------- PRE-FLIGHT SUPPORT CHECK ----------
 const PREFLIGHT_RULES = [
   {
     id:"privacy",
@@ -585,13 +970,16 @@ function runPreflight(){
   const summary=$("preflightSummary");
   const list=$("preflightList");
   list.innerHTML="";
+
   if(!source){
     summary.className="preflight-summary warn";
     summary.textContent="症例情報が未入力です。先に匿名化した症例材料を貼り付けてください。";
     return;
   }
+
   const results=PREFLIGHT_RULES.map(rule=>({...rule,pass:rule.test(source)}));
   const warnings=results.filter(r=>!r.pass).length;
+
   summary.className="preflight-summary "+(warnings?"warn":"good");
   summary.textContent=warnings
     ? `要確認候補が ${warnings} 件あります。これは合否判定ではなく、生成前にカルテへ戻る候補です。`
@@ -602,65 +990,117 @@ function runPreflight(){
     item.className="preflight-item "+(r.pass?"":"warn");
     item.innerHTML=`
       <div class="preflight-icon">${r.pass?"✓":"!"}</div>
-      <div><strong>${escapeHtml(r.title)}</strong><small>${escapeHtml(r.pass?r.ok:r.warn)}</small></div>`;
+      <div>
+        <strong>${escapeHtml(r.title)}</strong>
+        <small>${escapeHtml(r.pass?r.ok:r.warn)}</small>
+      </div>`;
     list.appendChild(item);
   });
 }
+$("runPreflightBtn").addEventListener("click",runPreflight);
 
-function updateDraftStatus(){
-  const caseId=currentSummaryCaseId();
-  const status=$("draftStatus");
-  if(!caseId){
-    status.textContent="症例未選択";
-    status.classList.remove("saved");
+// ---------- CHECK PANEL ----------
+function renderCheckPanel(){
+  const cases=loadCases();
+  const groups=officialGroupSet(cases);
+  const quickDone=cases.filter(c=>isQuickComplete(c.id)).length;
+  const summaryCandidates=cases.filter(c=>c.summary);
+  const fullDone=summaryCandidates.filter(c=>savedSummarySections(c.id)===6).length;
+
+  $("checkSummaryCards").innerHTML=`
+    <article class="check-card"><span>症例登録</span><strong>${cases.length} / ${REQUIREMENTS.totalCases}</strong></article>
+    <article class="check-card"><span>疾患群</span><strong>${groups.size} / ${REQUIREMENTS.totalGroups}</strong></article>
+    <article class="check-card"><span>QUICK完成</span><strong>${quickDone} / ${cases.length||0}</strong></article>
+    <article class="check-card"><span>FULL 6/6</span><strong>${fullDone} / ${summaryCandidates.length}</strong></article>
+  `;
+
+  const todos=[];
+
+  cases.filter(c=>!isQuickComplete(c.id)).slice(0,10).forEach(c=>{
+    todos.push({
+      type:"QUICK",
+      title:c.title,
+      text:"症例の概略＋自己省察が未完成です。",
+      id:c.id
+    });
+  });
+
+  summaryCandidates.filter(c=>savedSummarySections(c.id)<6).slice(0,10).forEach(c=>{
+    todos.push({
+      type:"FULL",
+      title:c.title,
+      text:`病歴要約 ${savedSummarySections(c.id)}/6 セクション保存済み。`,
+      id:c.id
+    });
+  });
+
+  const list=$("checkTodoList");
+  if(!todos.length){
+    list.innerHTML='<div class="empty-state"><h3>今ある症例の文章作業は完了しています</h3><p>新しい症例を追加するか、領域バランスを確認しましょう。</p></div>';
     return;
   }
-  const record=summaryRecord(caseId).record;
-  const saved=!!record.drafts?.[activeSummarySection]?.trim();
-  status.textContent=saved?"保存済み":"未保存";
-  status.classList.toggle("saved",saved);
+
+  list.innerHTML=todos.map(t=>`
+    <article class="todo-item">
+      <div>
+        <span class="todo-type">${t.type}</span>
+        <strong>${escapeHtml(t.title)}</strong>
+        <p>${escapeHtml(t.text)}</p>
+      </div>
+      <button type="button" class="secondary-btn" data-check-jump="${t.type}" data-case-id="${t.id}">開く</button>
+    </article>
+  `).join("");
+
+  list.querySelectorAll("[data-check-jump]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const id=btn.dataset.caseId;
+      if(btn.dataset.checkJump==="QUICK"){
+        refreshWorkspaceCaseOptions();
+        $("quickCaseSelect").value=id;
+        loadQuickCase();
+        $("quickPanel").scrollIntoView({behavior:"smooth",block:"start"});
+      }else{
+        refreshWorkspaceCaseOptions();
+        $("summaryCaseSelect").value=id;
+        loadSummaryCase();
+        $("summaryPanel").scrollIntoView({behavior:"smooth",block:"start"});
+      }
+    });
+  });
 }
 
-$("runPreflightBtn").addEventListener("click",runPreflight);
-$("summarySource").addEventListener("input",()=>{
-  $("preflightSummary").className="preflight-summary";
-  $("preflightSummary").textContent="症例情報を変更しました。再チェックしてください。";
-  $("preflightList").innerHTML="";
+// ---------- NAV ----------
+const NAV_TARGETS = {
+  home:"homePanel",
+  cases:"casesPanel",
+  quick:"quickPanel",
+  summary:"summaryPanel",
+  check:"checkPanel"
+};
+
+document.querySelectorAll(".nav-item").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    document.querySelectorAll(".nav-item").forEach(b=>b.classList.remove("active"));
+    btn.classList.add("active");
+    const target=$(NAV_TARGETS[btn.dataset.nav]);
+    target?.scrollIntoView({behavior:"smooth",block:"start"});
+  });
 });
 
-const _oldLoadSummaryCase=loadSummaryCase;
-loadSummaryCase=function(){
-  _oldLoadSummaryCase();
-  updateDraftStatus();
-  $("preflightSummary").className="preflight-summary";
-  $("preflightSummary").textContent=currentSummaryCaseId()
-    ?"「チェックする」で症例材料の抜け候補を確認できます。"
-    :"症例を選択してください。";
-  $("preflightList").innerHTML="";
-};
+// ---------- REFRESH ----------
+function refreshEverything(){
+  refreshDashboard();
+  renderCaseList();
+  refreshWorkspaceCaseOptions();
+  loadQuickCase();
+  loadSummaryCase();
+}
 
-const _oldSwitchSummarySection=switchSummarySection;
-switchSummarySection=function(section){
-  _oldSwitchSummarySection(section);
-  updateDraftStatus();
-};
+initSelects();
+refreshEverything();
 
-$("sectionDraft").addEventListener("input",()=>{
-  $("draftStatus").textContent="未保存";
-  $("draftStatus").classList.remove("saved");
-});
-
-const _oldSaveDraft=saveDraft;
-saveDraft=function(){
-  _oldSaveDraft();
-  updateDraftStatus();
-};
-
-// Rebind save draft button to wrapped function.
-const oldSaveBtn=$("saveDraftBtn");
-const newSaveBtn=oldSaveBtn.cloneNode(true);
-oldSaveBtn.parentNode.replaceChild(newSaveBtn,oldSaveBtn);
-newSaveBtn.addEventListener("click",saveDraft);
-
-refreshSummaryCaseOptions();
-loadSummaryCase();
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("./sw.js?v=6").catch(console.error);
+  });
+}
