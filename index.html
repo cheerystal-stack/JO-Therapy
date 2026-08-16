@@ -112,6 +112,20 @@
         </div>
       </div>
 
+
+      <section class="preflight-card">
+        <div class="preflight-head">
+          <div>
+            <p class="section-kicker">PRE-FLIGHT</p>
+            <h3>生成前チェック</h3>
+            <p class="muted">公式の合否判定ではなく、症例材料の「抜け」を見つける補助チェックです。</p>
+          </div>
+          <button type="button" class="secondary-btn" id="runPreflightBtn">チェックする</button>
+        </div>
+        <div id="preflightSummary" class="preflight-summary">症例情報を保存したらチェックできます。</div>
+        <div id="preflightList" class="preflight-list"></div>
+      </section>
+
       <div class="summary-tabs" id="summaryTabs">
         <button type="button" class="summary-tab active" data-section="history">① 病歴</button>
         <button type="button" class="summary-tab" data-section="physical">② 現症</button>
@@ -128,7 +142,7 @@
             <h3 id="sectionTitle">病歴</h3>
             <p class="muted" id="sectionGuide">主病名中心。カルテにない情報は補わない。</p>
           </div>
-          <span class="truth-badge">真正性優先</span>
+          <div class="editor-status-wrap"><span class="truth-badge">真正性優先</span><span id="draftStatus" class="draft-status">未保存</span></div>
         </div>
 
         <div id="missingHint" class="missing-hint">

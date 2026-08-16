@@ -168,10 +168,20 @@ function renderCaseList(){
           ${item.summary?'<span class="badge summary">病歴要約</span>':""}
         </div>
       </div>
-      <button type="button" class="edit-btn" data-edit-id="${item.id}">編集</button>`;
+      <div class="case-row-actions">
+        <button type="button" class="summary-jump-btn" data-summary-id="${item.id}">要約作成</button>
+        <button type="button" class="edit-btn" data-edit-id="${item.id}">編集</button>
+      </div>`;
     list.appendChild(row);
   });
   list.querySelectorAll("[data-edit-id]").forEach(b=>b.addEventListener("click",()=>openEditCase(b.dataset.editId)));
+  list.querySelectorAll("[data-summary-id]").forEach(b=>b.addEventListener("click",()=>{
+    const id=b.dataset.summaryId;
+    refreshSummaryCaseOptions();
+    $("summaryCaseSelect").value=id;
+    loadSummaryCase();
+    $("summaryPanel").scrollIntoView({behavior:"smooth",block:"start"});
+  }));
 }
 
 $("caseArea").addEventListener("change",e=>fillGroupSelect(e.target.value));
@@ -491,6 +501,166 @@ $("openSelectedCaseBtn").addEventListener("click",()=>{
   const id=currentSummaryCaseId();if(!id){alert("症例を選択してください。");return}
   openEditCase(id);
 });
+
+refreshSummaryCaseOptions();
+loadSummaryCase();
+
+
+// ---------- PRE-FLIGHT SUPPORT CHECK v5 ----------
+const PREFLIGHT_RULES = [
+  {
+    id:"privacy",
+    title:"個人識別情報",
+    test:(s)=>!/(氏名|住所|生年月日|病院名|クリニック名|医療センター|大学病院)/.test(s),
+    ok:"明らかな識別情報キーワードは検出されませんでした。",
+    warn:"患者氏名・住所・生年月日・実在施設名などが含まれていないか確認してください。"
+  },
+  {
+    id:"history",
+    title:"病歴の材料",
+    test:(s)=>/(主訴|発熱|疼痛|呼吸|意識|嘔吐|下痢|倦怠|浮腫|胸痛)/.test(s) && /(現病歴|受診|入院|搬送|発症)/.test(s),
+    ok:"主訴・時系列経過に使えそうな情報があります。",
+    warn:"主訴または発症から入院までの時系列情報が不足している可能性があります。"
+  },
+  {
+    id:"physical",
+    title:"入院時現症",
+    test:(s)=>/(体温|T\s|BP|血圧|HR|脈拍|SpO2|呼吸数|RR)/i.test(s),
+    ok:"バイタルまたは入院時所見が確認できます。",
+    warn:"入院時バイタル・重要身体所見が少ない可能性があります。"
+  },
+  {
+    id:"labs",
+    title:"検査所見",
+    test:(s)=>/(WBC|CRP|Hb|Cr|AST|ALT|Na|K|CT|MRI|X線|レントゲン|心電図|ECG)/i.test(s),
+    ok:"血液検査・画像等の材料が確認できます。",
+    warn:"主要検査所見が不足している可能性があります。"
+  },
+  {
+    id:"treatment",
+    title:"治療内容",
+    test:(s)=>/(開始|投与|内服|静注|点滴|治療|手術|酸素|抗菌薬|ステロイド|輸液)/.test(s),
+    ok:"実施治療に使えそうな記載があります。",
+    warn:"治療内容が明確でない可能性があります。"
+  },
+  {
+    id:"response",
+    title:"治療反応・転帰",
+    test:(s)=>/(改善|軽快|解熱|低下|増悪|終了|退院|転院|死亡|離脱|安定)/.test(s),
+    ok:"治療反応または転帰が確認できます。",
+    warn:"治療後の反応・転帰が不足している可能性があります。"
+  },
+  {
+    id:"rationale",
+    title:"診断・治療の根拠",
+    test:(s)=>/(ため|ことから|疑|診断|鑑別|選択|根拠|適応|否定|考え)/.test(s),
+    ok:"診断・治療理由に使えそうな記載があります。",
+    warn:"診断根拠や治療選択理由が原文から拾えない可能性があります。⑤では要確認になりやすい項目です。"
+  },
+  {
+    id:"dischargeMeds",
+    title:"退院時処方",
+    test:(s)=>/(退院時処方|退院処方|退院薬|退院時.*内服)/.test(s),
+    ok:"退院時処方の記載候補があります。",
+    warn:"退院時処方が確認できません。④では「要確認」になる可能性があります。"
+  },
+  {
+    id:"social",
+    title:"全人的情報",
+    test:(s)=>/(生活|家族|妻|夫|独居|同居|仕事|職業|会社員|喫煙|飲酒|介護|ADL|退院後)/.test(s),
+    ok:"生活・家族・仕事等の情報があります。",
+    warn:"総合考察に使える生活・家族・仕事・心理面の情報が少ない可能性があります。"
+  },
+  {
+    id:"reflection",
+    title:"自己省察につながる材料",
+    test:(s)=>/(学ん|反省|課題|今後|必要|注意|再発|指導|困難|難渋)/.test(s),
+    ok:"学び・今後の課題につながる記載があります。",
+    warn:"自己省察につながる材料は原文からは明確でない可能性があります。"
+  }
+];
+
+function runPreflight(){
+  const source=$("summarySource").value.trim();
+  const summary=$("preflightSummary");
+  const list=$("preflightList");
+  list.innerHTML="";
+  if(!source){
+    summary.className="preflight-summary warn";
+    summary.textContent="症例情報が未入力です。先に匿名化した症例材料を貼り付けてください。";
+    return;
+  }
+  const results=PREFLIGHT_RULES.map(rule=>({...rule,pass:rule.test(source)}));
+  const warnings=results.filter(r=>!r.pass).length;
+  summary.className="preflight-summary "+(warnings?"warn":"good");
+  summary.textContent=warnings
+    ? `要確認候補が ${warnings} 件あります。これは合否判定ではなく、生成前にカルテへ戻る候補です。`
+    : "大きな抜け候補は検出されませんでした。生成後も原文との照合は必要です。";
+
+  results.forEach(r=>{
+    const item=document.createElement("div");
+    item.className="preflight-item "+(r.pass?"":"warn");
+    item.innerHTML=`
+      <div class="preflight-icon">${r.pass?"✓":"!"}</div>
+      <div><strong>${escapeHtml(r.title)}</strong><small>${escapeHtml(r.pass?r.ok:r.warn)}</small></div>`;
+    list.appendChild(item);
+  });
+}
+
+function updateDraftStatus(){
+  const caseId=currentSummaryCaseId();
+  const status=$("draftStatus");
+  if(!caseId){
+    status.textContent="症例未選択";
+    status.classList.remove("saved");
+    return;
+  }
+  const record=summaryRecord(caseId).record;
+  const saved=!!record.drafts?.[activeSummarySection]?.trim();
+  status.textContent=saved?"保存済み":"未保存";
+  status.classList.toggle("saved",saved);
+}
+
+$("runPreflightBtn").addEventListener("click",runPreflight);
+$("summarySource").addEventListener("input",()=>{
+  $("preflightSummary").className="preflight-summary";
+  $("preflightSummary").textContent="症例情報を変更しました。再チェックしてください。";
+  $("preflightList").innerHTML="";
+});
+
+const _oldLoadSummaryCase=loadSummaryCase;
+loadSummaryCase=function(){
+  _oldLoadSummaryCase();
+  updateDraftStatus();
+  $("preflightSummary").className="preflight-summary";
+  $("preflightSummary").textContent=currentSummaryCaseId()
+    ?"「チェックする」で症例材料の抜け候補を確認できます。"
+    :"症例を選択してください。";
+  $("preflightList").innerHTML="";
+};
+
+const _oldSwitchSummarySection=switchSummarySection;
+switchSummarySection=function(section){
+  _oldSwitchSummarySection(section);
+  updateDraftStatus();
+};
+
+$("sectionDraft").addEventListener("input",()=>{
+  $("draftStatus").textContent="未保存";
+  $("draftStatus").classList.remove("saved");
+});
+
+const _oldSaveDraft=saveDraft;
+saveDraft=function(){
+  _oldSaveDraft();
+  updateDraftStatus();
+};
+
+// Rebind save draft button to wrapped function.
+const oldSaveBtn=$("saveDraftBtn");
+const newSaveBtn=oldSaveBtn.cloneNode(true);
+oldSaveBtn.parentNode.replaceChild(newSaveBtn,oldSaveBtn);
+newSaveBtn.addEventListener("click",saveDraft);
 
 refreshSummaryCaseOptions();
 loadSummaryCase();
