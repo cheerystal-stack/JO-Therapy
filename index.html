@@ -115,6 +115,14 @@
           <div class="mini-card"><span>プログラム外</span><strong id="outsideCount">0 / 最大60</strong></div>
         </div>
       </section>
+
+      <section id="casesPanel" class="cases-panel">
+        <div class="section-heading"><div><p class="section-kicker">CASES</p><h2>症例一覧</h2></div><button class="primary-btn" id="newCaseBtn2" type="button">＋ 新しい症例</button></div>
+        <div class="case-tools"><input id="caseSearch" type="search" placeholder="症例名・領域・疾患群で検索" /></div>
+        <div id="emptyCases" class="empty-state"><h3>まだ症例がありません</h3><p>「新しい症例」から最初の1件を登録します。</p></div>
+        <div id="caseList" class="case-list"></div>
+      </section>
+
     </main>
 
     <nav class="bottom-nav" aria-label="メインナビゲーション">
@@ -126,13 +134,15 @@
   </div>
 
   <dialog id="caseDialog">
-    <form method="dialog" class="dialog-card" id="caseForm">
+    <form class="dialog-card" id="caseForm">
+      <input type="hidden" id="editingId" />
       <div class="dialog-head">
         <div>
           <p class="section-kicker">NEW CASE</p>
           <h2>症例を登録</h2>
         </div>
-<button type="button" class="icon-btn" id="closeCaseDialog" aria-label="閉じる">×</button>
+        <button type="button" class="icon-btn" id="closeCaseDialog" aria-label="閉じる">×</button>
+      </div>
 
       <label>症例名（管理用）
         <input id="caseTitle" type="text" placeholder="例：肺炎 / 心不全 など" />
@@ -184,7 +194,7 @@
 
       <p class="helper">※これは初期モックです。患者氏名・生年月日・住所などの個人識別情報は入力しない設計にしていきます。</p>
 
-      <button type="submit" class="primary-btn full">保存</button>
+      <div class="dialog-actions"><button type="button" id="deleteCaseBtn" class="danger-btn hidden">削除</button><button type="submit" class="primary-btn">保存</button></div>
     </form>
   </dialog>
 
