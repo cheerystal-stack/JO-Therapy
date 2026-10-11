@@ -1,10 +1,10 @@
-const CACHE_NAME = "josler-therapy-v6.2";
+const CACHE_NAME = "josler-therapy-v6.2.1";
 const ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=6.2",
-  "./data.js?v=6.2",
-  "./app.js?v=6.2",
+  "./style.css?v=6.2.1",
+  "./data.js?v=6.2.1",
+  "./app.js?v=6.2.1",
   "./manifest.json",
   "./icon-192.png"
 ];
