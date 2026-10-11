@@ -897,6 +897,21 @@ $("copyDraftBtn").addEventListener("click",()=>{
   copyText(text,"下書きをコピーしました。");
 });
 
+function stripLeadingSectionHeading(text, title){
+  let out=String(text||"").trim();
+  if(!out) return "";
+
+  const heading=`【${title}】`;
+
+  // ChatGPTの出力側に同じ見出しが入っている場合、
+  // 「全部をまとめてコピー」で見出しが二重にならないよう先頭分だけ除去する。
+  while(out.startsWith(heading)){
+    out=out.slice(heading.length).replace(/^\s*\n?\s*/, "");
+  }
+
+  return out.trim();
+}
+
 $("copyAllDraftsBtn").addEventListener("click",()=>{
   const caseId=currentSummaryCaseId();
   if(!caseId){
@@ -907,7 +922,7 @@ $("copyAllDraftsBtn").addEventListener("click",()=>{
   const record=summaryRecord(caseId).record;
   const blocks=Object.entries(SUMMARY_SECTIONS)
     .map(([key,info])=>{
-      const d=record.drafts?.[key]?.trim();
+      const d=stripLeadingSectionHeading(record.drafts?.[key], info.title);
       return d?`【${info.title}】\n${d}`:"";
     })
     .filter(Boolean);
@@ -1144,6 +1159,6 @@ refreshEverything();
 
 if("serviceWorker" in navigator){
   window.addEventListener("load",()=>{
-    navigator.serviceWorker.register("./sw.js?v=6.2.1").catch(console.error);
+    navigator.serviceWorker.register("./sw.js?v=6.2.2").catch(console.error);
   });
 }
